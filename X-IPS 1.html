@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ManKelas - X-IPS 1 MAHIDA</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2, h3, h4 {
+            color: #333;
+        }
+        nav {
+            margin-bottom: 20px;
+        }
+        .nav-tab {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            background-color: #ddd;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .nav-tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn-delete {
+            background-color: #f44336;
+            color: white;
+            float: right;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .money-transaction {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .money-transaction.expense {
+            background-color: #ffeaea;
+        }
+        .transaction-amount {
+            font-weight: bold;
+        }
+        .piket-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .piket-done {
+            text-decoration: line-through;
+            color: #888;
+        }
+        .structure-item, .schedule-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+        .notification {
+            background-color: #e7f3ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 5px solid #2196F3;
+        }
+        .admin-indicator {
+            background-color: #ff9800;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .admin-only {
+            display: none;
+        }
+        .schedule-day {
+            margin-bottom: 20px;
+        }
+        .schedule-day h4 {
+            margin-bottom: 10px;
+            color: #2196F3;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="welcomeScreen">
+        <h1>Selamat Datang di ManKelas X-IPS 1</h1>
+        <p>Pilih role untuk melanjutkan:</p>
+        <button class="btn" onclick="loginAsRole('student')">Login sebagai Siswa</button>
+        <button class="btn" onclick="loginAsRole('admin')">Login sebagai Admin</button>
+    </div>
+
+    <div id="mainApp" style="display: none;">
+        <div class="admin-indicator" style="display: none;">Mode Admin Aktif</div>
+        <button class="btn" onclick="logoutAdmin()" id="logoutBtn" style="display: none;">Logout Admin</button>
+
+        <nav>
+            <button class="nav-tab active" onclick="showTab(this, 'money')">Keuangan</button>
+            <button class="nav-tab" onclick="showTab(this, 'piket')">Piket</button>
+            <button class="nav-tab" onclick="showTab(this, 'structure')">Struktur</button>
+            <button class="nav-tab" onclick="showTab(this, 'info')">Info</button>
+            <button class="nav-tab" onclick="showTab(this, 'schedule')">Jadwal</button>
+        </nav>
+
+        <div id="money" class="tab-content active">
+            <h2>Keuangan Kelas</h2>
+            <p><strong>Total Saldo:</strong> <span id="totalMoney">Rp 0</span></p>
+            <p><strong>Total Pemasukan:</strong> <span id="totalIncome">Rp 0</span></p>
+            <p><strong>Total Pengeluaran:</strong> <span id="totalExpense">Rp 0</span></p>
+            <button class="btn btn-success admin-only" onclick="showModal('addMoneyModal')">Tambah Pemasukan</button>
+            <button class="btn btn-success admin-only" onclick="showModal('expenseModal')">Tambah Pengeluaran</button>
+            <h3>Riwayat Transaksi</h3>
+            <div id="moneyHistory"></div>
+        </div>
+
+        <div id="piket" class="tab-content">
+            <h2>Jadwal Piket</h2>
+            <button class="btn admin-only" onclick="clearAllPiketStatus()">Reset Semua Status</button>
+            <div id="piketList"></div>
+        </div>
+
+        <div id="structure" class="tab-content">
+            <h2>Struktur Kelas</h2>
+            <button class="btn btn-success admin-only" onclick="showModal('addStructureModal')">Tambah Struktur</button>
+            <div id="structureList"></div>
+        </div>
+
+        <div id="info" class="tab-content">
+            <h2>Info Terbaru</h2>
+            <button class="btn btn-success admin-only" onclick="showModal('addInfoModal')">Tambah Info</button>
+            <div id="infoList"></div>
+        </div>
+
+        <div id="schedule" class="tab-content">
+            <h2>Jadwal Pelajaran</h2>
+            <button class="btn btn-success admin-only" onclick="showModal('addScheduleModal')">Tambah Jadwal</button>
+            <div id="scheduleList"></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="adminLoginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('adminLoginModal')">&times;</span>
+            <h2>Login Admin</h2>
+            <input type="password" id="adminPasswordInput" placeholder="Masukkan password admin">
+            <label><input type="checkbox" id="showPassword"> Tampilkan password</label>
+            <button class="btn btn-success" onclick="submitAdminLogin()">Login</button>
+        </div>
+    </div>
+
+    <div id="addMoneyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addMoneyModal')">&times;</span>
+            <h2>Tambah Pemasukan</h2>
+            <input type="number" id="incomeAmount" placeholder="Jumlah (Rp)">
+            <input type="text" id="incomeDesc" placeholder="Keterangan">
+            <button class="btn btn-success" onclick="addIncome()">Tambah</button>
+        </div>
+    </div>
+
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('expenseModal')">&times;</span>
+            <h2>Tambah Pengeluaran</h2>
+            <input type="number" id="expenseAmount" placeholder="Jumlah (Rp)">
+            <input type="text" id="expenseDesc" placeholder="Keterangan">
+            <button class="btn btn-success" onclick="addExpense()">Tambah</button>
+        </div>
+    </div>
+
+
+    <div id="addStructureModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addStructureModal')">&times;</span>
+            <h2>Tambah Struktur</h2>
+            <input type="text" id="structurePosition" placeholder="Jabatan">
+            <input type="text" id="structureName" placeholder="Nama">
+            <button class="btn btn-success" onclick="addStructure()">Tambah</button>
+        </div>
+    </div>
+
+    <div id="addInfoModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addInfoModal')">&times;</span>
+            <h2>Tambah Info</h2>
+            <input type="text" id="infoTitle" placeholder="Judul">
+            <textarea id="infoContent" placeholder="Isi info"></textarea>
+            <button class="btn btn-success" onclick="addInfo()">Tambah</button>
+        </div>
+    </div>
+
+    <div id="addScheduleModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addScheduleModal')">&times;</span>
+            <h2>Tambah Jadwal</h2>
+            <select id="scheduleDay">
+                <option value="">Pilih Hari</option>
+                <option value="Senin">Senin</option>
+                <option value="Selasa">Selasa</option>
+                <option value="Rabu">Rabu</option>
+                <option value="Kamis">Kamis</option>
+                <option value="Jumat">Jumat</option>
+                <option value="Sabtu">Sabtu</option>
+            </select>
+            <input type="text" id="scheduleTime" placeholder="Waktu (e.g., 07:00)">
+            <input type="text" id="scheduleSubject" placeholder="Mata Pelajaran">
+            <input type="text" id="scheduleTeacher" placeholder="Guru">
+            <button class="btn btn-success" onclick="addSchedule()">Tambah</button>
+        </div>
+    </div>
+
+    <script>
+        // Data storage
+        let classData = {
+            money: {
+                balance: 0,
+                transactions: []
+            },
+            piket: {},
+            piketStatus: {},
+            structure: [],
+            info: [],
+            schedule: {}
+        };
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAukuX_RnKirq9rr0XNkzP87xeD2l_ZVFs",
+            authDomain: "x-ips-1.firebaseapp.com",
+            projectId: "x-ips-1",
+            storageBucket: "x-ips-1.firebasestorage.app",
+            messagingSenderId: "374178173642",
+            appId: "1:374178173642:web:f730f28a61fd95bfae5a33",
+            measurementId: "G-3DGJ2T6VG1",
+            databaseURL: "https://x-ips-1-default-rtdb.firebaseio.com"
+        };
+
+
+        // {
+        //   "rules": {
+        //     "classData": {
+        //       ".read": true,
+        //       ".write": "auth != null"
+        //     }
+        //   }
+        // }
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Admin system
+        let isAdmin = false;
+        const adminPassword = "MAHIDAJAYA";
+
+        function loginAsRole(role) {
+            if (role === 'admin') {
+                showAdminLoginModal();
+            } else {
+                isAdmin = false;
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                updateAdminUI();
+                // Jangan saveData() di sini!
+            }
+        }
+
+        function showAdminLoginModal() {
+            document.getElementById('adminLoginModal').style.display = 'block';
+        }
+
+        function submitAdminLogin() {
+            const password = document.getElementById('adminPasswordInput').value;
+            if (password === adminPassword) {
+                isAdmin = true;
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                updateAdminUI();
+                closeModal('adminLoginModal');
+                document.getElementById('adminPasswordInput').value = '';
+                alert("✅ Login sebagai Admin berhasil!");
+                // Jangan saveData() di sini!
+            } else {
+                alert("❌ Password salah!");
+            }
+        }
+
+        function logoutAdmin() {
+            if (confirm("Apakah Anda yakin ingin logout dari mode admin?")) {
+                isAdmin = false;
+                updateAdminUI();
+                alert("✅ Berhasil logout dari mode admin!");
+            }
+        }
+
+        function updateAdminUI() {
+            const adminButtons = document.querySelectorAll('.admin-only');
+            adminButtons.forEach(btn => {
+                btn.style.display = isAdmin ? 'inline-block' : 'none';
+            });
+
+            const adminIndicator = document.querySelector('.admin-indicator');
+            if (adminIndicator) {
+                adminIndicator.style.display = isAdmin ? 'block' : 'none';
+            }
+
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.style.display = isAdmin ? 'inline-block' : 'none';
+            }
+
+            if (!isAdmin) {
+                document.getElementById('addPiketModal').style.display = 'none';
+                document.getElementById('addStructureModal').style.display = 'none';
+                document.getElementById('addInfoModal').style.display = 'none';
+                document.getElementById('addScheduleModal').style.display = 'none';
+            }
+
+            updateDisplay();
+        }
+
+        // Realtime listener
+        let isInitialLoad = true;
+        function loadData() {
+            db.ref("classData").on("value", snapshot => {
+                console.log('Firebase data listener triggered');
+                if (snapshot.exists()) {
+                    console.log('Data exists in Firebase');
+                    classData = snapshot.val();
+                    // Pastikan struktur data tetap aman
+                    if (!classData.money) classData.money = { balance: 0, transactions: [] };
+                    if (!Array.isArray(classData.money.transactions)) classData.money.transactions = [];
+                    if (!classData.structure) classData.structure = [];
+                    if (!classData.info) classData.info = [];
+                    if (!classData.schedule) classData.schedule = {};
+                    if (!classData.piket) classData.piket = {};
+                    if (!classData.piketStatus) classData.piketStatus = {};
+                    updateDisplay();
+                } else if (isInitialLoad) {
+                    console.log('No data in Firebase, setting defaults');
+                    isInitialLoad = false;
+                    // Set default data if none exists
+                    classData.structure = [
+                        {position: 'Wali Kelas', name: 'Yasinta Putri'},
+                        {position: 'Ketua Kelas', name: 'Syeikhu Bagas Satria'},
+                        {position: 'Wakil Ketua Kelas', name: 'M.Asyif Al Wahid'},
+                        {position: 'Sekretaris 1', name: 'Muhibbatul Wahdah'},
+                        {position: 'Bendahara', name: 'Nisa Asyifa'}
+                    ];
+                    classData.piket = {
+                        'Senin': ['Hibba', 'Luthfi', 'Aiinshin', 'Rohmah', 'Nurul'].map(name => ({ name, done: false })),
+                        'Selasa': ['Farida', 'Isti', 'Isna', 'Khusnul', 'Dafa', 'Farih'].map(name => ({ name, done: false })),
+                        'Rabu': ['Suci', 'Neha', 'Livia', 'Uus', 'Bintang', 'Hafidz'].map(name => ({ name, done: false })),
+                        'Kamis': ['Asyif', 'Bagas', 'Aini', 'Laili', 'Fira'].map(name => ({ name, done: false })),
+                        'Jumat': ['Putri', 'Fina', 'Dika', 'Rehan', 'Naila', 'Diana'].map(name => ({ name, done: false })),
+                        'Sabtu': ['Pendik', 'Tata', 'Sipa', 'Alfian', 'Ida'].map(name => ({ name, done: false }))
+                    };
+                    classData.piketStatus = {};
+                    classData.money = { balance: 0, transactions: [] };
+                    classData.info = [];
+                    classData.schedule = {};
+                    db.ref("classData").set(classData);
+                }
+            });
+        }
+
+        function saveData() {
+            db.ref("classData").set(classData);
+        }
+
+        // UI & Modal
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateDisplay();
+
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.onclick = function(e) {
+                    if (e.target === modal || e.target.classList.contains('close')) {
+                        modal.style.display = 'none';
+                        // Reset input fields on close
+                        const inputs = modal.querySelectorAll('input, textarea');
+                        inputs.forEach(input => input.value = '');
+                    }
+                }
+            });
+
+            document.getElementById('showPassword').addEventListener('change', function() {
+                const input = document.getElementById('adminPasswordInput');
+                input.type = this.checked ? 'text' : 'password';
+            });
+        });
+
+        function showTab(element, tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            element.classList.add('active');
+
+            if (tabName === 'piket') {
+                updatePiketDisplay();
+            }
+        }
+
+        function showModal(modalId) {
+            if (isAdmin) {
+                document.getElementById(modalId).style.display = 'block';
+            } else {
+                alert("❌ Hanya admin yang bisa melakukan aksi ini!");
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            // Reset input fields on close
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                const inputs = modal.querySelectorAll('input, textarea');
+                inputs.forEach(input => input.value = '');
+            }
+        }
+
+        function updateDisplay() {
+            updateMoneyDisplay();
+            updatePiketDisplay();
+            updateStructureDisplay();
+            updateInfoDisplay();
+            updateScheduleDisplay();
+        }
+
+        function formatMoney(amount) {
+            return `Rp ${amount.toLocaleString('id-ID')}`;
+        }
+
+        function updateMoneyDisplay() {
+            if (!classData.money) classData.money = { balance: 0, transactions: [] };
+            if (!Array.isArray(classData.money.transactions)) classData.money.transactions = [];
+            const income = classData.money.transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expense = classData.money.transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+            classData.money.balance = income - expense;
+
+            document.getElementById('totalMoney').textContent = formatMoney(classData.money.balance);
+            document.getElementById('totalIncome').textContent = formatMoney(income);
+            document.getElementById('totalExpense').textContent = formatMoney(expense);
+
+            const historyList = document.getElementById('moneyHistory');
+            historyList.innerHTML = '';
+
+            if (classData.money.transactions.length === 0) {
+                historyList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Belum ada riwayat transaksi</p>';
+            } else {
+                classData.money.transactions.slice().reverse().forEach((t, i) => {
+                    const index = classData.money.transactions.length - 1 - i;
+                    const transactionDiv = document.createElement('div');
+                    transactionDiv.classList.add('money-transaction');
+                    if (t.type === 'expense') {
+                        transactionDiv.classList.add('expense');
+                    }
+
+                    const transactionText = document.createElement('div');
+                    transactionText.innerHTML = `<p><strong>${t.desc}</strong></p><p>${t.date}</p>`;
+
+                    const transactionAmount = document.createElement('span');
+                    transactionAmount.classList.add('transaction-amount');
+                    const sign = t.type === 'income' ? '+' : '-';
+                    transactionAmount.style.color = t.type === 'income' ? '#2ed573' : '#ff4757';
+                    transactionAmount.textContent = `${sign}${formatMoney(t.amount)}`;
+
+                    transactionDiv.appendChild(transactionText);
+                    transactionDiv.appendChild(transactionAmount);
+
+                    if (isAdmin) {
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.classList.add('btn-delete');
+                        deleteBtn.innerHTML = '&times;';
+                        deleteBtn.onclick = () => deleteTransaction(index);
+                        transactionDiv.appendChild(deleteBtn);
+                    }
+
+                    historyList.appendChild(transactionDiv);
+                });
+            }
+        }
+
+        function deleteTransaction(index) {
+            if (isAdmin) {
+                if (confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+                    if (classData.money.transactions && classData.money.transactions[index]) {
+                        classData.money.transactions.splice(index, 1);
+                        saveData();
+                    }
+                }
+            } else {
+                alert("❌ Hanya admin yang bisa menghapus transaksi!");
+            }
+        }
+
+        // Piket status key agar konsisten di semua device
+        function getPiketKey(day, name) {
+            return `${day}:${name}`;
+        }
+
+        function updatePiketDisplay() {
+            console.log('Updating piket display');
+            const piketList = document.getElementById('piketList');
+            piketList.innerHTML = '';
+            const daysOrder = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+            daysOrder.forEach(day => {
+                if (classData.piket[day] && classData.piket[day].length > 0) {
+                    const dayDiv = document.createElement('div');
+                    dayDiv.classList.add('schedule-day');
+                    dayDiv.innerHTML = `<h4>${day}</h4>`;
+
+                    classData.piket[day].forEach(item => {
+                        const piketItemDiv = document.createElement('div');
+                        piketItemDiv.classList.add('piket-item');
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = item.name;
+                        piketItemDiv.appendChild(nameSpan);
+
+                        const key = getPiketKey(day, item.name);
+                        const isDone = classData.piketStatus[key] || false;
+
+                        if (isDone) {
+                            piketItemDiv.classList.add('piket-done');
+                        }
+
+                        if (isAdmin) {
+                            const checkBtn = document.createElement('button');
+                            checkBtn.className = 'btn btn-success';
+                            checkBtn.innerHTML = isDone ? '✓✓' : '✓';
+                            checkBtn.onclick = () => markPiketDoneByKey(day, item.name);
+                            piketItemDiv.appendChild(checkBtn);
+                        }
+
+                        dayDiv.appendChild(piketItemDiv);
+                    });
+
+                    piketList.appendChild(dayDiv);
+                }
+            });
+
+            if (piketList.innerHTML === '') {
+                piketList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Belum ada jadwal piket</p>';
+            }
+        }
+
+        function markPiketDoneByKey(day, name) {
+            if (isAdmin) {
+                const key = getPiketKey(day, name);
+                const currentStatus = classData.piketStatus[key] || false;
+                classData.piketStatus[key] = !currentStatus;
+                saveData();
+                const statusText = classData.piketStatus[key] ? 'ditandai selesai' : 'ditandai belum selesai';
+                showNotification(`✅ Status piket berhasil ${statusText}!`);
+            } else {
+                showNotification("❌ Hanya admin yang bisa menandai status piket!");
+            }
+        }
+
+        function clearAllPiketStatus() {
+            if (isAdmin) {
+                if (confirm("Apakah Anda yakin ingin mereset semua status piket?\n\nSemua tanda centang akan dihapus.")) {
+                    classData.piketStatus = {};
+                    saveData();
+                    showNotification("✅ Semua status piket berhasil direset!");
+                }
+            } else {
+                showNotification("❌ Hanya admin yang bisa mereset status piket!");
+            }
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.maxWidth = '300px';
+            notification.innerHTML = `<p>${message}</p>`;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function updateStructureDisplay() {
+            const structureList = document.getElementById('structureList');
+            structureList.innerHTML = '';
+            if (!Array.isArray(classData.structure)) classData.structure = [];
+            if (classData.structure.length === 0) {
+                structureList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Belum ada struktur kelas</p>';
+            } else {
+                classData.structure.forEach((item, index) => {
+                    const structureDiv = document.createElement('div');
+                    structureDiv.classList.add('structure-item');
+                    structureDiv.innerHTML = `
+                        <h4>${item.position}</h4>
+                        <p>${item.name}</p>
+                        ${isAdmin ? `<button class="btn-delete" onclick="deleteStructure(${index})">&times;</button>` : ''}
+                    `;
+                    structureList.appendChild(structureDiv);
+                });
+            }
+        }
+
+        function updateInfoDisplay() {
+            const infoList = document.getElementById('infoList');
+            infoList.innerHTML = '';
+            if (!Array.isArray(classData.info)) classData.info = [];
+            if (classData.info.length === 0) {
+                infoList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Belum ada info terbaru</p>';
+            } else {
+                classData.info.slice().reverse().forEach((item, index) => {
+                    const realIndex = classData.info.length - 1 - index;
+                    const infoDiv = document.createElement('div');
+                    infoDiv.classList.add('notification');
+                    infoDiv.innerHTML = `
+                        <h4>${item.title}</h4>
+                        <p>${item.content}</p>
+                        <small>${item.date}</small>
+                        ${isAdmin ? `<button class="btn-delete" onclick="deleteInfo(${realIndex})">&times;</button>` : ''}
+                    `;
+                    infoList.appendChild(infoDiv);
+                });
+            }
+        }
+
+        function updateScheduleDisplay() {
+            const scheduleList = document.getElementById('scheduleList');
+            scheduleList.innerHTML = '';
+            const daysOrder = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            let hasSchedule = false;
+
+            daysOrder.forEach(day => {
+                if (classData.schedule[day] && classData.schedule[day].length > 0) {
+                    hasSchedule = true;
+                    const dayDiv = document.createElement('div');
+                    dayDiv.classList.add('schedule-day');
+                    dayDiv.innerHTML = `<h4>${day}</h4>`;
+
+                    classData.schedule[day].sort((a, b) => a.time.localeCompare(b.time));
+
+                    classData.schedule[day].forEach((item, index) => {
+                        const scheduleItemDiv = document.createElement('div');
+                        scheduleItemDiv.classList.add('schedule-item');
+                        scheduleItemDiv.innerHTML = `
+                            <p><strong>${item.time}</strong> - ${item.subject} (${item.teacher})</p>
+                            ${isAdmin ? `<button class="btn-delete" onclick="deleteSchedule('${day}', ${index})">&times;</button>` : ''}
+                        `;
+                        dayDiv.appendChild(scheduleItemDiv);
+                    });
+
+                    scheduleList.appendChild(dayDiv);
+                }
+            });
+
+            if (!hasSchedule) {
+                scheduleList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Belum ada jadwal pelajaran</p>';
+            }
+        }
+
+        // Add functions
+        function addIncome() {
+            if (!classData.money) classData.money = { balance: 0, transactions: [] };
+            if (!Array.isArray(classData.money.transactions)) classData.money.transactions = [];
+            const amount = parseInt(document.getElementById('incomeAmount').value);
+            const desc = document.getElementById('incomeDesc').value;
+
+            if (amount > 0 && desc.trim()) {
+                classData.money.transactions.push({
+                    type: 'income',
+                    amount: amount,
+                    desc: desc.trim(),
+                    date: new Date().toLocaleDateString('id-ID')
+                });
+
+                document.getElementById('incomeAmount').value = '';
+                document.getElementById('incomeDesc').value = '';
+                document.getElementById('addMoneyModal').style.display = 'none';
+
+                saveData();
+            } else {
+                alert('Jumlah harus lebih dari 0 dan keterangan harus diisi.');
+            }
+        }
+
+        function addExpense() {
+            if (!classData.money) classData.money = { balance: 0, transactions: [] };
+            if (!Array.isArray(classData.money.transactions)) classData.money.transactions = [];
+            const amount = parseInt(document.getElementById('expenseAmount').value);
+            const desc = document.getElementById('expenseDesc').value;
+
+            if (amount > 0 && desc.trim()) {
+                classData.money.transactions.push({
+                    type: 'expense',
+                    amount: amount,
+                    desc: desc.trim(),
+                    date: new Date().toLocaleDateString('id-ID')
+                });
+
+                document.getElementById('expenseAmount').value = '';
+                document.getElementById('expenseDesc').value = '';
+                document.getElementById('expenseModal').style.display = 'none';
+
+                saveData();
+            } else {
+                alert('Jumlah harus lebih dari 0 dan keterangan harus diisi.');
+            }
+        }
+
+        function addPiket() {
+            alert('📋 Jadwal piket sudah ditetapkan dan tidak dapat diubah.\n\nJika perlu perubahan, hubungi admin untuk update manual.');
+            document.getElementById('piketName').value = '';
+            document.getElementById('addPiketModal').style.display = 'none';
+        }
+
+        function addStructure() {
+            if (!Array.isArray(classData.structure)) classData.structure = [];
+            const position = document.getElementById('structurePosition').value.trim();
+            const name = document.getElementById('structureName').value.trim();
+
+            if (position && name) {
+                classData.structure.push({ position, name });
+
+                document.getElementById('structurePosition').value = '';
+                document.getElementById('structureName').value = '';
+                document.getElementById('addStructureModal').style.display = 'none';
+
+                saveData();
+            } else {
+                alert('Jabatan dan nama harus diisi.');
+            }
+        }
+
+        function deleteStructure(index) {
+            if (isAdmin) {
+                if (confirm("Apakah Anda yakin ingin menghapus struktur ini?")) {
+                    if (classData.structure && classData.structure[index]) {
+                        classData.structure.splice(index, 1);
+                        saveData();
+                    }
+                }
+            } else {
+                alert("❌ Hanya admin yang bisa menghapus struktur kelas!");
+            }
+        }
+
+        function addInfo() {
+            if (!Array.isArray(classData.info)) classData.info = [];
+            const title = document.getElementById('infoTitle').value.trim();
+            const content = document.getElementById('infoContent').value.trim();
+
+            if (title && content) {
+                classData.info.push({
+                    title,
+                    content,
+                    date: new Date().toLocaleDateString('id-ID')
+                });
+
+                document.getElementById('infoTitle').value = '';
+                document.getElementById('infoContent').value = '';
+                document.getElementById('addInfoModal').style.display = 'none';
+
+                saveData();
+            } else {
+                alert('Judul dan isi info harus diisi.');
+            }
+        }
+
+        function deleteInfo(index) {
+            if (isAdmin) {
+                if (confirm("Apakah Anda yakin ingin menghapus info ini?")) {
+                    if (classData.info && classData.info[index]) {
+                        classData.info.splice(index, 1);
+                        saveData();
+                    }
+                }
+            } else {
+                alert("❌ Hanya admin yang bisa menghapus info!");
+            }
+        }
+
+        function addSchedule() {
+            if (!classData.schedule) classData.schedule = {};
+            const day = document.getElementById('scheduleDay').value;
+            const time = document.getElementById('scheduleTime').value.trim();
+            const subject = document.getElementById('scheduleSubject').value.trim();
+            const teacher = document.getElementById('scheduleTeacher').value.trim();
+
+            if (day && time && subject && teacher) {
+                if (!classData.schedule[day]) {
+                    classData.schedule[day] = [];
+                }
+                classData.schedule[day].push({ time, subject, teacher });
+
+                document.getElementById('scheduleTime').value = '';
+                document.getElementById('scheduleSubject').value = '';
+                document.getElementById('scheduleTeacher').value = '';
+                document.getElementById('addScheduleModal').style.display = 'none';
+
+                saveData();
+            } else {
+                alert('Semua bidang harus diisi.');
+            }
+        }
+
+        function deleteSchedule(day, index) {
+            if (isAdmin) {
+                if (confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
+                    if (classData.schedule[day] && classData.schedule[day][index]) {
+                        classData.schedule[day].splice(index, 1);
+                        saveData();
+                    }
+                }
+            } else {
+                alert("❌ Hanya admin yang bisa menghapus jadwal!");
+            }
+        }
+    </script>
+</body>
+</html>
